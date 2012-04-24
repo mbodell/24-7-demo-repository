@@ -1,4 +1,5 @@
-
+// This code is copyright 24/7, Inc. and is fully protected under copyright law.
+// This code may only be used pursuant to a valid license by 24/7, Inc.
 var _bridge_version = "1.0"
 var _bridge_build = 1;
 
