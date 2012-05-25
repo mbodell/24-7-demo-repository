@@ -2,7 +2,7 @@
 // This code may only be used pursuant to a valid license by 24/7, Inc.
 
 var _bridge_version = "1.0"
-var _bridge_build = 3;
+var _bridge_build = 4;
 var _bridge_iframe;
 
 function NativeBridgeClass() {
@@ -26,6 +26,7 @@ function NativeBridgeClass() {
     this.locationCallback = null;
     this.eventsCallback = null;
     this.initCallback = null;
+    this.activeCallback = null;
     this.notificationCallback = null;
     this.contactsCallback = null;
     this.barcodeCallback = null;
@@ -35,6 +36,10 @@ function NativeBridgeClass() {
 NativeBridgeClass.prototype.onInitialize = function(callback) {
     this.initCallback = callback;
 };
+
+NativeBridgeClass.prototype.onActiveStateChange = function(callback) {
+    this.activeCallback = callback;				     
+}
   
 NativeBridgeClass.prototype.onNotification = function(callback) {
     this.notificationCallback = callback;
@@ -166,6 +171,15 @@ NativeBridgeClass.prototype._initialize = function(o) {
       }, 1);
     }
     return _bridge_version+"."+_bridge_build;
+};
+  
+NativeBridgeClass.prototype._setActiveState = function(o) {
+    if (this.activeCallback != null) {
+      var _this = this;
+      setTimeout(function(){
+        _this.activeCallback(o);
+      }, 1);
+    }
 };
   
 NativeBridgeClass.prototype._setGrammarResult = function(result) {
