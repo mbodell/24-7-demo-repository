@@ -170,12 +170,14 @@ NativeBridgeClass.prototype.reportLogStartSession = function() {
 };  
 
 NativeBridgeClass.prototype.reportLogScreen = function(screenId) {
+  localStorage.setItem("NativeBridge.currentScreen",screenId);
   this._reportLog("SCREEN", {
     screenId : screenId
   });
 };
 
-NativeBridgeClass.prototype.reportLogEvent = function(screenId,eventName,eventType,eventAttrs) {
+NativeBridgeClass.prototype.reportLogEvent = function(eventName,eventType,eventAttrs) {
+  var screenId = localStorage.getItem("NativeBridge.currentScreen");
   this._reportLog("EVENT", {
     screenId : screenId,
     eventName : eventName,
@@ -204,8 +206,7 @@ NativeBridgeClass.prototype._initialize = function(o) {
       setTimeout(function(){
         localStorage.removeItem("NativeBridge.sessionId",null);
         localStorage.removeItem("NativeBridge.pendingSessionId",null);
-//        localStorage.setItem("NativeBridge.mobileservicesUrl",o.mobileservicesUrl);
-//        localStorage.setItem("NativeBridge.ani",o.ani);
+        localStorage.removeItem("NativeBridge.currentScreen",null);
         localStorage.setItem("NativeBridge.initObj",JSON.stringify(o));
         o.bridge = new Object();
         o.bridge.version = _bridge_version;
