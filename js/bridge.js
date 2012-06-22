@@ -2,7 +2,7 @@
 // This code may only be used pursuant to a valid license by 24/7, Inc.
 
 var _bridge_version = "1.0"
-var _bridge_build = 4;
+var _bridge_build = 5;
 var _bridge_iframe;
 
 function NativeBridgeClass() {
@@ -31,6 +31,8 @@ function NativeBridgeClass() {
     this.contactsCallback = null;
     this.barcodeCallback = null;
     this.infoCallback = null;
+
+    this.reportLogQueue = new Array();
 }
 
 NativeBridgeClass.prototype.onInitialize = function(callback) {
@@ -38,7 +40,7 @@ NativeBridgeClass.prototype.onInitialize = function(callback) {
 };
 
 NativeBridgeClass.prototype.onActiveStateChange = function(callback) {
-    this.activeCallback = callback;				     
+    this.activeCallback = callback;                                  
 }
   
 NativeBridgeClass.prototype.onNotification = function(callback) {
@@ -46,7 +48,7 @@ NativeBridgeClass.prototype.onNotification = function(callback) {
 };
 
 NativeBridgeClass.prototype.onInfo = function(callback) {
-    this.state.hasInfo = callback == null ? false : true;				   
+    this.state.hasInfo = callback == null ? false : true;                                  
     this.infoCallback = callback;
     this._notifyNative();
 };
@@ -54,7 +56,7 @@ NativeBridgeClass.prototype.onInfo = function(callback) {
 NativeBridgeClass.prototype.scanBarcode = function(params, callback) {
     this.state.scanBarcode = new Object();
     this.state.scanBarcode.params = params;
-    this.barcodeCallback = callback;					
+    this.barcodeCallback = callback;                                    
     this._notifyNative();
 }
   
@@ -65,9 +67,9 @@ NativeBridgeClass.prototype.startRecognition = function() {
   
 NativeBridgeClass.prototype.log = function(msg) {
     if (typeof msg == 'string')
-      this.state.log.push(msg);				
+      this.state.log.push(msg);                         
     else
-      this.state.log.push(JSON.stringify(msg));				
+      this.state.log.push(JSON.stringify(msg));                         
     this._notifyNative();
 };
 
@@ -157,13 +159,54 @@ NativeBridgeClass.prototype.sendText = function(recipients, body) {
     this.state.sendMessage.body = body;
     this._notifyNative();
 };
-  
-  // The functions below are intended to be invoked only from the Native side. 
-  // Do not call them directly from javascript
+
+NativeBridgeClass.prototype.reportLogStartSession = function() {
+  var initObj = JSON.parse(localStorage.getItem("NativeBridge.initObj"));
+  initObj.userAgent = navigator.userAgent;
+  this._reportLog("SESSION_START", initObj);
+  this.getLocation(function(o) {
+    this._reportLog("LOCATION", o);
+  });                                             
+};  
+
+NativeBridgeClass.prototype.reportLogScreen = function(screenId) {
+  this._reportLog("SCREEN", {
+    screenId : screenId
+  });
+};
+
+NativeBridgeClass.prototype.reportLogEvent = function(screenId,eventName,eventType,eventAttrs) {
+  this._reportLog("EVENT", {
+    screenId : screenId,
+    eventName : eventName,
+    eventType : eventType,
+    eventAttrs : eventAttrs
+  });
+};
+
+NativeBridgeClass.prototype.reportLogSurvey = function(question,answer) {
+  this._reportLog("SURVEY", {
+    question:question,
+    answer:answer
+  });
+};
+
+NativeBridgeClass.prototype.reportLogEndSession = function() {
+  this._reportLog("SESSION_END", null);
+};  
+
+
+// The functions below are intended to be invoked only from the Native side. 
+// Do not call them directly from javascript
 NativeBridgeClass.prototype._initialize = function(o) {
     if (this.initCallback != null) {
       var _this = this;
       setTimeout(function(){
+        localStorage.removeItem("NativeBridge.sessionId",null);
+        localStorage.removeItem("NativeBridge.pendingSessionId",null);
+//        localStorage.setItem("NativeBridge.mobileservicesUrl",o.mobileservicesUrl);
+//        localStorage.setItem("NativeBridge.ani",o.ani);
+        localStorage.setItem("NativeBridge.initObj",JSON.stringify(o));
         o.bridge = new Object();
         o.bridge.version = _bridge_version;
         o.bridge.build = _bridge_build;
@@ -264,7 +307,7 @@ NativeBridgeClass.prototype._initFrame = function() {
 
 
 NativeBridgeClass.prototype._notifyNative = function() {
-  if (!this.stateChanged) {					  
+  if (!this.stateChanged) {                                       
     this.stateChanged = true;
     setTimeout(function() {
       if (_bridge_iframe != null) {
@@ -273,7 +316,6 @@ NativeBridgeClass.prototype._notifyNative = function() {
     }, 1);
   }
 };
-
 
 
 NativeBridgeClass.prototype._getState = function() {
@@ -293,6 +335,47 @@ NativeBridgeClass.prototype._getState = function() {
       return ret;
     }
     return null;
+};
+
+NativeBridgeClass.prototype._reportLog = function(logType, data) {
+  var o = new Object();
+  o.logType = logType;
+  o.data = data;
+  o.ts = new Date().getTime();
+  this.reportLogQueue.push(o);
+  this._processReportLogQueue();
+};
+
+NativeBridgeClass.prototype._processReportLogQueue = function() {
+  var sessionId = localStorage.getItem("NativeBridge.sessionId");
+  var initObj = JSON.parse(localStorage.getItem("NativeBridge.initObj"));
+  var pendingSessionId = localStorage.getItem("NativeBridge.pendingSessionId");
+  var _this = this;
+  
+  if (pendingSessionId != null && parseInt(pendingSessionId)) {
+    return;       
+  } else {
+    if (this.reportLogQueue.length == 0) return;
+    var o = this.reportLogQueue.shift();
+    if (pendingSessionId == null)
+      localStorage.setItem("NativeBridge.pendingSessionId",1);
+    var req=new XMLHttpRequest();
+    req.open("POST", initObj.mobileservicesUrl+"/report-log", true);
+    req.setRequestHeader("Content-Type","application/x-www-form-urlencoded");
+    req.onreadystatechange = function() {
+      if (req.readyState != 4) return;
+      if (req.status == 200 && req.responseText != null) {
+        var sessionId = req.responseText;
+        if (sessionId == null)
+          localStorage.removeItem("NativeBridge.sessionId");
+        else
+          localStorage.setItem("NativeBridge.sessionId", sessionId);
+      } 
+      localStorage.setItem("NativeBridge.pendingSessionId",0);
+      _this._processReportLogQueue();
+    };
+    req.send("ani="+encodeURIComponent(initObj.ani)+"&type="+encodeURIComponent(o.logType)+"&ts="+encodeURIComponent(o.ts)+"&data="+encodeURIComponent(JSON.stringify(o.data))+(sessionId==null?"":"&sessionId="+encodeURIComponent(sessionId)));;
+  }
 };
 
 var NativeBridge = new NativeBridgeClass();
