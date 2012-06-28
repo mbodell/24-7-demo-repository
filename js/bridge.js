@@ -2,7 +2,7 @@
 // This code may only be used pursuant to a valid license by 24/7, Inc.
 
 var _bridge_version = "1.0"
-var _bridge_build = 5;
+var _bridge_build = 6;
 var _bridge_iframe;
 
 function NativeBridgeClass() {
@@ -164,9 +164,10 @@ NativeBridgeClass.prototype.reportLogStartSession = function() {
   var initObj = JSON.parse(localStorage.getItem("NativeBridge.initObj"));
   initObj.userAgent = navigator.userAgent;
   this._reportLog("SESSION_START", initObj);
-  this.getLocation(function(o) {
-    this._reportLog("LOCATION", o);
-  });                                             
+};  
+
+NativeBridgeClass.prototype.reportLogLocation = function(loc) {
+  this._reportLog("LOCATION", o);
 };  
 
 NativeBridgeClass.prototype.reportLogScreen = function(screenId) {
@@ -353,7 +354,7 @@ NativeBridgeClass.prototype._processReportLogQueue = function() {
   var pendingSessionId = localStorage.getItem("NativeBridge.pendingSessionId");
   var _this = this;
   
-  if (pendingSessionId != null && parseInt(pendingSessionId)) {
+  if (initObj == null || (pendingSessionId != null && parseInt(pendingSessionId))) {
     return;       
   } else {
     if (this.reportLogQueue.length == 0) return;
